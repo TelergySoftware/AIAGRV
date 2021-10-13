@@ -105,4 +105,3 @@ def get_auditor_id(name: str, db_path: str) -> int:
 
 if __name__ == '__main__':
     json_to_sql('../../data/resources/JSON/output.json', '../../data/resources/DB/output.db', True)
-
