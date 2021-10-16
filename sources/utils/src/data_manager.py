@@ -109,84 +109,115 @@ class API:
     O caminho do banco de dados é dado por DB_PATH e pode ser alterado pelo método db_path.
     """
     DB_PATH = './sources/data/resources/DB/output.db'
+    SEVERITIES = ['Low', 'Medium', 'High', 'Informational', 'Undetermined']
 
     @classmethod
-    def get_auditor(cls, auditor_id: int) -> dict:
+    def get_auditors(cls, *auditor_ids: int) -> dict | list[dict]:
         """
-        Método para leitura do auditor pelo ID.
+        Método para leitura de auditores pelo ID.
 
-        :param auditor_id: ID do auditor
+        :param auditor_ids: ID do auditor
         :return: Dicionário representando o auditor
         """
         with sqlite3.connect(cls.DB_PATH) as db:
-            cursor = db.cursor()
-            script = "SELECT * FROM auditors WHERE id = ?"
-            cursor.execute(script, [auditor_id])
-            auditor = cursor.fetchone()
-            return {'id': auditor[0], 'name': auditor[1]}
+            if len(auditor_ids) > 0:
+                auditors = []
+                for auditor_id in auditor_ids:
+                    cursor = db.cursor()
+                    script = "SELECT * FROM auditors WHERE id = ?"
+                    cursor.execute(script, [auditor_id])
+                    auditor = cursor.fetchone()
+                    auditors.append({'id': auditor[0], 'name': auditor[1]})
+                return auditors[0] if len(auditors) == 1 else auditors
+            elif len(auditor_ids) == 0:
+                auditors = []
+                cursor = db.cursor()
+                script = "SELECT * FROM auditors"
+                cursor.execute(script)
+                buffer = cursor.fetchall()
+                for auditor in buffer:
+                    auditors.append({'id': auditor[0], 'name': auditor[1]})
+                return auditors
+            else:
+                return []
 
     @classmethod
-    def get_findings_by_auditor(cls, auditor: str | int) -> list[dict]:
+    def get_findings_by_auditors(cls, *auditors: str | int) -> list[dict]:
         """
         Método para leitura de findings pelo nome ou ID do auditor.
 
-        :param auditor: Nome ou ID do auditor.
+        :param auditors: Nome ou ID do auditor.
         :return: Lista de dicionários representado os findings.
         """
-        if type(auditor) not in [str, int]:
-            print("O campo auditor só pode ser str ou int!")
-            return []  # Retorna lista vazia se o tipo não for válido.
 
         with sqlite3.connect(cls.DB_PATH) as db:
             cursor = db.cursor()
 
-            if type(auditor) == int:
-                script = "SELECT * FROM findings WHERE auditor_id = ?"
-            else:
-                script = "SELECT id FROM auditors WHERE name = ?"
-                try:
+            if len(auditors) > 0:
+                findings = []
+                for auditor in auditors:
+                    if type(auditor) == int:
+                        script = "SELECT * FROM findings WHERE auditor_id = ?"
+                    else:
+                        script = "SELECT id FROM auditors WHERE name = ?"
+                        try:
+                            cursor.execute(script, [auditor])
+                        except sqlite3.OperationalError:
+                            return []  # Retorna lista vazia se der algum erro.
+                        auditor = cursor.fetchone()[0]
+                        script = "SELECT * FROM findings WHERE auditor_id = ?"
+
                     cursor.execute(script, [auditor])
-                except sqlite3.OperationalError:
-                    return []  # Retorna lista vazia se der algum erro.
-                auditor = cursor.fetchone()[0]
-                script = "SELECT * FROM findings WHERE auditor_id = ?"
+                    buffer = cursor.fetchall()
+                    auditor = cls.get_auditors(auditor)
+                    for finding in buffer:
+                        finding_dict = {'id': finding[0], 'title': finding[1], 'severity': finding[2],
+                                        'auditor': auditor}
+                        findings.append(finding_dict)
 
-            cursor.execute(script, [auditor])
-            buffer = cursor.fetchall()
-            findings = []
-            auditor = cls.get_auditor(auditor)
-            for finding in buffer:
-                finding_dict = {'id': finding[0], 'title': finding[1], 'severity': finding[2], 'auditor': auditor}
-                findings.append(finding_dict)
+                return findings
 
-            return findings
+            elif len(auditors) == 0:
+                script = "SELECT * FROM findings"
+
+                cursor.execute(script)
+                findings = []
+                buffer = cursor.fetchall()
+                for finding in buffer:
+                    auditor = cls.get_auditors(finding[3])
+                    finding_dict = {'id': finding[0], 'title': finding[1], 'severity': finding[2],
+                                    'auditor': auditor}
+                    findings.append(finding_dict)
+
+                return findings
+
+            else:
+                return []
 
     @classmethod
-    def get_findings_by_severity(cls, severity: str) -> list[dict]:
+    def get_findings_by_severities(cls, *severities: str) -> list[dict]:
         """
         Método para leitura de findings pela severidade.
 
-        :param severity: Severidade do finding.
+        :param severities: Severidade do finding.
         :return: Lista de dicionários representado os findings.
         """
-        if type(severity) is not str:
-            print("Campo severity só pode ser str!")
-            return []  # Retorna lista vazia se o tipo não for válido.
 
         with sqlite3.connect(cls.DB_PATH) as db:
             cursor = db.cursor()
 
-            script = "SELECT * FROM findings WHERE severity = ?"
-            try:
-                cursor.execute(script, [severity])
-            except sqlite3.OperationalError:
-                return []  # Retorna lista vazia se der algum erro.
-            buffer = cursor.fetchall()
             findings = []
-            for finding in buffer:
-                auditor = cls.get_auditor(finding[3])
-                finding_dict = {'id': finding[0], 'title': finding[1], 'severity': finding[2], 'auditor': auditor}
-                findings.append(finding_dict)
+            for severity in severities:
+                script = "SELECT * FROM findings WHERE severity = ?"
+                try:
+                    cursor.execute(script, [severity])
+                except sqlite3.OperationalError:
+                    return []  # Retorna lista vazia se der algum erro.
+                buffer = cursor.fetchall()
+                for finding in buffer:
+                    auditor = cls.get_auditor(finding[3])
+                    finding_dict = {'id': finding[0], 'title': finding[1], 'severity': finding[2], 'auditor': auditor}
+                    findings.append(finding_dict)
 
             return findings
 
@@ -214,6 +245,21 @@ class API:
             return total
 
     @classmethod
+    def execute(cls, script: str, values: list) -> list:
+        """
+        Método para executar um comando SQL genérico.
+
+        :param script: Script SQL para execução.
+        :param values: Lista com os valores a do script SQL.
+        :return: Lista com os resultados encontrados.
+        """
+
+        with sqlite3.connect(cls.DB_PATH) as db:
+            cursor = db.cursor()
+            cursor.execute(script, values)
+            return cursor.fetchall()
+
+    @classmethod
     def db_path(cls, path: str = None) -> str:
         """
         Muda e/ou retorna o caminho para o banco de dados.
@@ -226,6 +272,12 @@ class API:
 
         return cls.DB_PATH
 
-
+    @classmethod
+    def severities(cls) -> list[str]:
+        """
+        Método para consulta das severidades disponíveis.
+        :return: Lista com os labels de severidade.
+        """
+        return cls.SEVERITIES
 # if __name__ == '__main__':
 #     json_to_sql('../../data/resources/JSON/output.json', '../../data/resources/DB/output.db', True)
