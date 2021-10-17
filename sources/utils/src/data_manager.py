@@ -43,7 +43,7 @@ def json_to_sql(json_data: str | list, db_path: str, is_new: bool) -> bool:
         print("DB não existe ou falhou em ser criado.")
         return False
 
-    with sqlite3.connect('../../data/resources/DB/output.db') as db:
+    with sqlite3.connect(db_path) as db:
         # Conectamos ao banco já criado.
         cursor = db.cursor()
         auditors = set()  # Set vazio com os nomes dos auditores.
@@ -57,13 +57,15 @@ def json_to_sql(json_data: str | list, db_path: str, is_new: bool) -> bool:
                     findings['title'].append(report['title'])
                     findings['severity'].append(report['severity'])
                     findings['auditor'].append('None')
-            for auditor in data['auditors']:
-                auditors.add(auditor)
-                for report in data['findings']:
-                    # Popula o dicionário findings.
-                    findings['title'].append(report['title'])
-                    findings['severity'].append(report['severity'])
-                    findings['auditor'].append(auditor)
+            else:
+                for auditor in data['auditors']:
+                    auditors.add(auditor) if not auditor.endswith(' ') else auditors.add(auditor[:-1])
+                    for report in data['findings']:
+                        # Popula o dicionário findings.
+                        findings['title'].append(report['title'])
+                        findings['severity'].append(report['severity'])
+                        findings['auditor'].append(auditor) if not auditor.endswith(' ') else \
+                            findings['auditor'].append(auditor[:-1])
 
         for auditor in auditors:
             # Adiciona os auditores na tabela auditors do DB.
@@ -279,5 +281,7 @@ class API:
         :return: Lista com os labels de severidade.
         """
         return cls.SEVERITIES
-# if __name__ == '__main__':
-#     json_to_sql('../../data/resources/JSON/output.json', '../../data/resources/DB/output.db', True)
+
+
+if __name__ == '__main__':
+    json_to_sql('../../data/resources/JSON/output.json', '../../data/resources/DB/output.db', True)
