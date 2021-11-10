@@ -320,7 +320,7 @@ class API:
             return dataframe
 
     @classmethod
-    def get_issues(cls, **kwargs) -> pd.DataFrame | str | int | list[str | int]:
+    def get_issues(cls, **kwargs) -> pd.DataFrame:
         """
         Método para retornar issues de acordo com os pares de valor passados.
         possíveis keywords:
@@ -333,29 +333,20 @@ class API:
         - issue_title = str
         - issue_titles = str[]
 
-        TODO: issue_id implementation
-        TODO: issue_ids implementation
-        TODO: issue_title implementation
-        TODO: issue_titles implementation
-
         :param kwargs: Par chave valor para busca do(s) resultado(s).
-        :return: DataFrame com issues e nomes dos auditores se não houver parâmetros,
-                 DataFrame com issues onde auditor_id(s) ou auditor_name(s) forem encontrados,
-                 título da issue se passado keyword issue_id,
-                 id da issue se passado keyword issue_title,
-                 lista com títulos das issues se passado keyword issue_ids,
-                 lista com ids das issues se passado keyword issue_titles.
+        :return: DataFrame com issues e nomes dos auditores se não houver parâmetros.
+                 DataFrame com issues e auditores onde auditor_id(s) ou auditor_name(s) forem encontrados.
+                 DataFrame com issues e auditores onde issue_id(s) ou issue_title(s) forem encontrados.
         """
 
         if not kwargs:
             with sqlite3.connect(cls.DB_PATH) as db:
                 script = """
-                                SELECT * FROM
-                                    (SELECT issue.* FROM issues issue
-                                        INNER JOIN auditors_issues ai on issue.id = ai.issue_id)
-                                    LEFT JOIN
-                                    (SELECT ad.* FROM auditors ad
-                                        INNER JOIN auditors_issues ai on ad.id = ai.auditor_id) as auditor ON auditor.id;
+                                SELECT * FROM (SELECT issue.* FROM issues issue
+                                        INNER JOIN auditors_issues ai on issue.id = ai.issue_id) LEFT JOIN
+                                            (SELECT ad.* FROM auditors ad INNER JOIN auditors_issues ai 
+                                                on ad.id = ai.auditor_id) 
+                                                    as auditor ON auditor.id;
                                 """
 
                 df = pd.read_sql_query(script, db)
@@ -388,7 +379,12 @@ class API:
                 return df
 
         elif "auditor_name" in kwargs:
-            auditor_name = kwargs['auditor_name']
+            auditor_name = None
+            try:
+                auditor_name = kwargs['auditor_name']
+            except KeyError:
+                pass
+            
             with sqlite3.connect(cls.DB_PATH) as db:
                 script = f"""
                                 SELECT * FROM (SELECT * FROM (SELECT * FROM auditors WHERE name = '{auditor_name}') as auditor
@@ -405,6 +401,60 @@ class API:
                                 SELECT * FROM (SELECT * FROM (SELECT * FROM auditors WHERE name IN {auditor_names}) as auditor
                                      INNER JOIN auditors_issues ai on auditor.id = ai.auditor_id) as si
                                         INNER JOIN issues iss on si.issue_id = iss.id;
+                                """
+                df = pd.read_sql_query(script, db)
+                return df
+        
+        elif "issue_id" in kwargs:
+            issue_id = None
+            try:
+                issue_id = kwargs['issue_id']
+            except KeyError:
+                pass
+
+            with sqlite3.connect(cls.DB_PATH) as db:
+                script = f"""
+                                SELECT * FROM (SELECT * FROM (SELECT * FROM issues WHERE id = {issue_id}) as issue
+                                     INNER JOIN auditors_issues ai on issue.id = ai.issue_id) as si
+                                        INNER JOIN auditors ad on si.auditor_id = ad.id;
+                                """
+                df = pd.read_sql_query(script, db)
+                return df
+
+        elif "issue_ids" in kwargs:
+            with sqlite3.connect(cls.DB_PATH) as db:
+                issue_ids = tuple(kwargs['issue_ids'])
+                script = f"""
+                                SELECT * FROM (SELECT * FROM (SELECT * FROM issues WHERE id IN {issue_ids}) as issue
+                                     INNER JOIN auditors_issues ai on issue.id = ai.issue_id) as si
+                                        INNER JOIN auditors ad on si.auditor_id = ad.id;
+                                """
+                df = pd.read_sql_query(script, db)
+                return df
+        
+        elif "issue_title" in kwargs:
+            issue_title = None
+            try:
+                issue_title = kwargs['issue_title']
+            except KeyError:
+                pass
+            
+            with sqlite3.connect(cls.DB_PATH) as db:
+                script = f"""
+                                SELECT * FROM (SELECT * FROM (SELECT * FROM issues WHERE title = '{issue_title}') as issue
+                                     INNER JOIN auditors_issues ai on issue.id = ai.issue_id) as si
+                                        INNER JOIN auditors ad on si.auditor_id = ad.id;
+                                """
+                df = pd.read_sql_query(script, db)
+                return df
+
+        elif "issue_titles" in kwargs:
+            with sqlite3.connect(cls.DB_PATH) as db:
+                issue_titles = tuple(kwargs['issue_titles'])
+                script = f"""
+                                SELECT * FROM (SELECT * FROM (SELECT * FROM issues WHERE title IN {issue_titles}) as issue
+                                     INNER JOIN auditors_issues ai on issue.id = ai.issue_id) as si
+                                        INNER JOIN auditors ad on si.auditor_id = ad.id;
                                 """
                 df = pd.read_sql_query(script, db)
                 return df
