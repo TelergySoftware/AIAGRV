@@ -324,13 +324,21 @@ class API:
         """
         Método para retornar issues de acordo com os pares de valor passados.
         possíveis keywords:
+
         - auditor_id = int
+
         - auditor_ids = int[]
+
         - auditor_name = str
+
         - auditor_names = str[]
+
         - issue_id = int
+
         - issue_ids = int[]
+
         - issue_title = str
+
         - issue_titles = str[]
 
         :param kwargs: Par chave valor para busca do(s) resultado(s).
