@@ -126,7 +126,8 @@ def json_to_sql(json_data: str | list, db_path: str, is_new: bool) -> bool:
             sql_script = """
             INSERT INTO findings(title, severity, auditor_id, issue_id) VALUES (?, ?, ?, ?);
             """
-            cursor.execute(sql_script, finding.values)
+            auditor_id = API.get_auditor_id(finding['auditor'])
+            cursor.execute(sql_script, [finding['title'], finding['severity'], auditor_id, finding['issue_id']])
             db.commit()
 
     return True
@@ -491,4 +492,4 @@ class API:
 
 if __name__ == '__main__':
     API.db_path('../../data/resources/DB/output.db')
-    # json_to_sql('../../data/resources/JSON/output.json', '../../data/resources/DB/output.db', True)
+    json_to_sql('../../data/resources/JSON/output.json', '../../data/resources/DB/output.db', True)
