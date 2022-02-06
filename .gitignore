@@ -1,0 +1,5 @@
+# Ignore .vscode and build directories
+.vscode
+build
+# Ignore all .pyc, .pyo and .pyd files
+*.py[co]
