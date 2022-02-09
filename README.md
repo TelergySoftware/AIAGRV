@@ -12,3 +12,9 @@ com o nome `ICdataUtils.so`. Para importar este módulo, utilize:
 ```python
 from CPP.shared import ICdataUtils
 ```
+
+### Compilando com o CMake
+Na pasta raiz do projeto, abra um terminal e digite:
+```bash
+cmake --build . --config Release
+```
