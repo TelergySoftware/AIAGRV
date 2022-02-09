@@ -1,5 +1,6 @@
-# Ignore .vscode and build directories
+# Ignore .vscode, CMake and build directories
 .vscode
+CMakeFiles
 build
 # Ignore all .pyc, .pyo and .pyd files
 *.py[co]
